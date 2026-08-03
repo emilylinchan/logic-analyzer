@@ -20,19 +20,19 @@
  */
 
 module sampler #(
-    parameter integer CHANNELS = 8, // Number of probe channels
-    parameter integer DIV_W    = 16 // Divider bit width
+    parameter integer CHANNELS  = 8, // Number of probe channels
+    parameter integer DIV_WIDTH = 16 // Divider width (16 bits supports ~763 S/s)
 )(
-    input  wire                i_clk,
-    input  wire                i_rst_n,        // Active-low synchronous reset
-    input  wire                i_en,           // Active-high enable
-    input  wire [DIV_W-1:0]    i_div,          // Sample every (i_div + 1) clocks
-    input  wire [CHANNELS-1:0] i_probes,       // Synchronized channels from sync_in
-    output reg  [CHANNELS-1:0] o_sample,       // Captured channel state
-    output reg                 o_sample_valid  // 1-cycle strobe for a valid sample
+    input  wire                 i_clk,
+    input  wire                 i_rst_n,        // Active-low synchronous reset
+    input  wire                 i_en,           // Active-high enable
+    input  wire [DIV_WIDTH-1:0] i_div,          // Sample every (i_div + 1) clocks
+    input  wire [CHANNELS-1:0]  i_probes,       // Synchronized channels from sync_in
+    output reg  [CHANNELS-1:0]  o_sample,       // Captured channel state
+    output reg                  o_sample_valid  // 1-cycle strobe for a valid sample
 );
 
-    reg [DIV_W-1:0] r_count;
+    reg [DIV_WIDTH-1:0] r_count;
 
     always @(posedge i_clk)
     begin
