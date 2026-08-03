@@ -30,8 +30,7 @@ module uart_rx #(
 );
 
     // ----- Clock Domain Crossing (2-FF Synchronizer) -----
-    (* ASYNC_REG = "TRUE" *) reg r_rx_meta, r_rx_stable;
-    
+    reg r_rx_meta, r_rx_stable;
     always @(posedge i_clk)
     begin
         if (!i_rst_n)
