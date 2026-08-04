@@ -7,7 +7,7 @@
  */
 
 module buffer_ram #(
-    parameter integer WIDTH      = 8,            // Bits per sample (one per probe channel)
+    parameter integer CHANNELS   = 8,            // Bits per sample (one per probe channel)
     parameter integer DEPTH      = 8192,         // Samples held (multiple of one of M9K's size configurations to avoid waste)
     parameter integer ADDR_WIDTH = $clog2(DEPTH) // Bits needed to index DEPTH samples (13 for the default 8192-deep buffer)
 )(
@@ -17,17 +17,17 @@ module buffer_ram #(
     // ----- Write port (capture) -----
     input  wire                  i_clear,   // Rewind the write pointer, arm for a new capture
     input  wire                  i_wr_en,   // Tie to the sampler's o_sample_valid
-    input  wire [WIDTH-1:0]      i_wr_data, // Tie to the sampler's o_sample
+    input  wire [CHANNELS-1:0]   i_wr_data, // Tie to the sampler's o_sample
     output wire                  o_full,    // Ignore writes once buffer holds DEPTH samples
     output wire [ADDR_WIDTH:0]   o_count,   // Samples currently stored
 
     // ----- Read port (UART dump) -----
     input  wire [ADDR_WIDTH-1:0] i_rd_addr, // Address driven by the UART dump FSM to read back a stored sample
-    output reg  [WIDTH-1:0]      o_rd_data  // Valid 1 clock after i_rd_addr
+    output reg  [CHANNELS-1:0]   o_rd_data  // Valid 1 clock after i_rd_addr
 );
 
     // Map memory array into physical M9K block RAM components on FPGA
-    (* ramstyle = "M9K" *) reg [WIDTH-1:0] r_mem [0:DEPTH-1]; 
+    (* ramstyle = "M9K" *) reg [CHANNELS-1:0] r_mem [0:DEPTH-1]; 
 
     reg [ADDR_WIDTH-1:0] r_wr_addr;
     reg [ADDR_WIDTH:0]   r_count;
@@ -42,7 +42,7 @@ module buffer_ram #(
     begin
         if (!i_rst_n || i_clear)
         begin
-            r_wd_addr <= 0;
+            r_wr_addr <= 0;
             r_count   <= 0;
         end
         else if (w_do_write)
