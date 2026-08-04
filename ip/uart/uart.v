@@ -33,8 +33,8 @@ module uart #(
     wire w_baud_tick, w_baud_tick_16x;
 
     baud_gen #(
-        .CLK_FREQ(CLK_FREQ),
-        .BAUD_RATE(BAUD_RATE)
+        .CLK_FREQ        (CLK_FREQ),
+        .BAUD_RATE       (BAUD_RATE)
     ) u_baud (
         .i_clk           (i_clk),
         .i_rst_n         (i_rst_n),
@@ -44,7 +44,7 @@ module uart #(
 
     // ----- Transmitter -----
     uart_tx #(
-        .DATA_BITS(DATA_BITS)
+        .DATA_BITS   (DATA_BITS)
     ) u_tx (
         .i_clk       (i_clk),
         .i_rst_n     (i_rst_n),
@@ -58,7 +58,7 @@ module uart #(
 
     // ----- Receiver -----
     uart_rx #(
-        .DATA_BITS(DATA_BITS)
+        .DATA_BITS       (DATA_BITS)
     ) u_rx (
         .i_clk           (i_clk),
         .i_rst_n         (i_rst_n),
