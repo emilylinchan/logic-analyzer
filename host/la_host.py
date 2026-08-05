@@ -20,9 +20,6 @@ Free-running capture at 1 MS/s (mask 0 matches everything, fires immediately):
 
 Trigger on a falling edge on channel 0 (i.e. catch a UART start bit):
     python la_host.py -p COM3 --rate 2e6 --mask 0x01 --value 0x00 --edge
-
-Only plot the channels you care about, and save the result:
-    python la_host.py -p COM3 --channels 0,1,4 --save capture.png --csv capture.csv
 """
 
 import argparse
@@ -62,14 +59,15 @@ def configure(ser, div, mask, value, edge):
     ser.write(bytes([CMD_SET_MODE, 1 if edge else 0]))
     ser.flush()
     
-def capture(ser, depth, trigger_wait):
+def capture(ser, depth, trigger_wait, rate):
     """Arm, wait for the trigger, then read back the buffer."""
     ser.reset_input_buffer()
     ser.write(bytes([CMD_ARM]))
     ser.flush()
-    
+
     buf = bytearray()
-    deadline = time.time() + trigger_wait # Time budge for trigger condition to occur
+    fill_time = depth / rate # Time for the FPGA to fill its buffer before it streams back
+    deadline = time.time() + trigger_wait + fill_time # Budget for trigger AND acquisition
     streaming = False
     
     # Data capture logic
@@ -186,7 +184,7 @@ def main():
         time.sleep(0.05) # Let USB-serial bridge settle
         configure(ser, div, args.mask, args.value, args.edge)
         print("Armed, waiting for trigger...")
-        raw = capture(ser, args.depth, args.wait)
+        raw = capture(ser, args.depth, args.wait, actual)
         
     bits = unpack(raw)
     print(f"Captured {bits.shape[0]} samples")
