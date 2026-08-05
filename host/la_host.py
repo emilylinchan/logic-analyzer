@@ -36,6 +36,7 @@ CLK_FREQ = 50_000_000
 DEPTH    = 8192
 CHANNELS = 8
 DIV_MAX  = 0xFFFF # 2 byte max value for FPGA register
+TRIGGER_MARGIN_S = 10.0 # Extra time beyond the fill window to wait for the trigger to fire
 
 
 CMD_SET_DIV   = 0x01
@@ -59,7 +60,7 @@ def configure(ser, div, mask, value, edge):
     ser.write(bytes([CMD_SET_MODE, 1 if edge else 0]))
     ser.flush()
     
-def capture(ser, depth, trigger_wait, rate):
+def capture(ser, depth, rate):
     """Arm, wait for the trigger, then read back the buffer."""
     ser.reset_input_buffer()
     ser.write(bytes([CMD_ARM]))
@@ -67,7 +68,8 @@ def capture(ser, depth, trigger_wait, rate):
 
     buf = bytearray()
     fill_time = depth / rate # Time for the FPGA to fill its buffer before it streams back
-    deadline = time.time() + trigger_wait + fill_time # Budget for trigger AND acquisition
+    trigger_wait = fill_time + TRIGGER_MARGIN_S # Budget for trigger and acquisition
+    deadline = time.time() + trigger_wait
     streaming = False
     
     # Data capture logic
@@ -153,9 +155,6 @@ def main():
     parser.add_argument("--channels", default=",".join(str(i) for i in range(CHANNELS)),
                         help="channels to plot, e.g. 0,1,4 (default: all)")
     parser.add_argument("--depth", type=int, default=DEPTH, help="must match DEPTH in la_top.v")
-    parser.add_argument("--wait", type=float, default=10.0,
-                        help="seconds to wait for the trigger (default: 10)")
-    
     args = parser.parse_args()
     
     if args.list:
@@ -184,7 +183,7 @@ def main():
         time.sleep(0.05) # Let USB-serial bridge settle
         configure(ser, div, args.mask, args.value, args.edge)
         print("Armed, waiting for trigger...")
-        raw = capture(ser, args.depth, args.wait, actual)
+        raw = capture(ser, args.depth, actual)
         
     bits = unpack(raw)
     print(f"Captured {bits.shape[0]} samples")
