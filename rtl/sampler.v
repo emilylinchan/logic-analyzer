@@ -21,7 +21,7 @@
 
 module sampler #(
     parameter integer CHANNELS  = 8, // Number of probe channels
-    parameter integer DIV_WIDTH = 16 // Divider width (16 bits supports ~763 S/s)
+    parameter integer DIV_WIDTH = 24 // Divider width (24 bits supports down to ~3 S/s)
 )(
     input  wire                 i_clk,
     input  wire                 i_rst_n,        // Active-low synchronous reset

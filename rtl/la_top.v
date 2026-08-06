@@ -8,7 +8,7 @@
  * DEPTH bytes over UART TX.
  *
  * ----- Host command set (bytes, LSB-first arguments) -----
- *   0x01 <lo> <hi>   SET_DIV    : sample rate = CLK_FREQ / (div + 1)
+ *   0x01 <b0> <b1> <b2> SET_DIV  : sample rate = CLK_FREQ / (div + 1), div LSB-first
  *   0x02 <mask>      SET_MASK   : 1 = channel participates in the trigger
  *   0x03 <value>     SET_VALUE  : expected level on masked channels
  *   0x04 <mode>      SET_MODE   : bit0, 0 = level trigger, 1 = edge trigger
@@ -20,7 +20,7 @@ module la_top #(
     parameter integer BAUD_RATE  = 1_000_000,
     parameter integer CHANNELS   = 8,         // Probe channels
     parameter integer DEPTH      = 8192,      // Samples per capture
-    parameter integer DIV_WIDTH  = 16,
+    parameter integer DIV_WIDTH  = 24,        // 24 bits supports down to ~3 S/s at 50 MHz
     parameter integer ADDR_WIDTH = $clog2(DEPTH)
 )(
     input  wire                i_clk,     // MAX10_CLK1_50
@@ -83,7 +83,7 @@ module la_top #(
     begin
         if (!r_rst_stable)
         begin
-            r_div       <= 16'd49; // Power-up default: 1 MS/s at 50 MHz
+            r_div       <= 24'd49; // Power-up default: 1 MS/s at 50 MHz
             r_mask      <= 0;      // Power-up default: match everything/ trigger immediately
             r_value     <= 0;
             r_edge_mode <= 1'b0;
@@ -102,7 +102,7 @@ module la_top #(
                     // Opcode byte
                     r_opcode <= w_rx_data;
                     case (w_rx_data)
-                        CMD_SET_DIV:  r_arg_count <= 2'd2;
+                        CMD_SET_DIV:  r_arg_count <= 2'd3;
                         CMD_SET_MASK,
                         CMD_SET_VALUE,
                         CMD_SET_MODE: r_arg_count <= 2'd1;
@@ -115,8 +115,11 @@ module la_top #(
                     // Argument byte
                     case (r_opcode)
                         CMD_SET_DIV:
-                            if (r_arg_count == 2'd2) r_div[7:0]  <= w_rx_data; // Low byte 
-                            else                     r_div[15:8] <= w_rx_data; // High byte
+                            case (r_arg_count)
+                                2'd3:    r_div[7:0]   <= w_rx_data; // Byte 0 (LSB)
+                                2'd2:    r_div[15:8]  <= w_rx_data; // Byte 1
+                                default: r_div[23:16] <= w_rx_data; // Byte 2 (MSB)
+                            endcase
                         CMD_SET_MASK:                r_mask      <= w_rx_data;
                         CMD_SET_VALUE:               r_value     <= w_rx_data;
                         CMD_SET_MODE:                r_edge_mode <= w_rx_data[0];

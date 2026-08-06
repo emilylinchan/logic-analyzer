@@ -4,7 +4,7 @@ la_host.py - host-side capture and plotting for the DE10-Lite logic analyzer.
 
 Speaks the byte protocol implemented in la_top.v:
 
-    0x01 <lo> <hi>   SET_DIV    : sample rate = CLK_FREQ / (div + 1)
+    0x01 <b0> <b1> <b2> SET_DIV : sample rate = CLK_FREQ / (div + 1), div LSB-first
     0x02 <mask>      SET_MASK   : 1 = channel participates in the trigger
     0x03 <value>     SET_VALUE  : expected level on masked channels
     0x04 <mode>      SET_MODE   : bit0, 0 = level trigger, 1 = edge trigger
@@ -12,13 +12,10 @@ Speaks the byte protocol implemented in la_top.v:
 
 Examples
 --------
-List serial ports:
-    python la_host.py --list
-
 Free-running capture at 1 MS/s (mask 0 matches everything, fires immediately):
     python la_host.py -p COM3 --rate 1e6
 
-Trigger on a falling edge on channel 0 (i.e. catch a UART start bit):
+Trigger on a falling edge on channel 0 at 2 MS/s (i.e. catch a UART start bit):
     python la_host.py -p COM3 --rate 2e6 --mask 0x01 --value 0x00 --edge
 """
 
@@ -35,7 +32,7 @@ import matplotlib.pyplot as plt
 CLK_FREQ = 50_000_000
 DEPTH    = 8192
 CHANNELS = 8
-DIV_MAX  = 0xFFFF # 2 byte max value for FPGA register
+DIV_MAX  = 0xFFFFFF     # 3 byte max value for FPGA register
 TRIGGER_MARGIN_S = 10.0 # Extra time beyond the fill window to wait for the trigger to fire
 
 
@@ -54,7 +51,7 @@ def rate_to_div(rate):
 
 def configure(ser, div, mask, value, edge):
     """Send configuration over UART to FPGA."""
-    ser.write(bytes([CMD_SET_DIV, div & 0xFF, (div >> 8) & 0xFF]))
+    ser.write(bytes([CMD_SET_DIV, div & 0xFF, (div >> 8) & 0xFF, (div >> 16) & 0xFF]))
     ser.write(bytes([CMD_SET_MASK, mask & 0xFF]))
     ser.write(bytes([CMD_SET_VALUE, value & 0xFF]))
     ser.write(bytes([CMD_SET_MODE, 1 if edge else 0]))
@@ -70,15 +67,11 @@ def capture(ser, depth, rate):
     fill_time = depth / rate # Time for the FPGA to fill its buffer before it streams back
     trigger_wait = fill_time + TRIGGER_MARGIN_S # Budget for trigger and acquisition
     deadline = time.time() + trigger_wait
-    streaming = False
-    
+
     # Data capture logic
     while len(buf) < depth and time.time() < deadline:
         chunk = ser.read(depth - len(buf))
         if chunk:
-            if not streaming:
-                streaming = True
-                print("Triggered, receiving data...")
             buf.extend(chunk)
             deadline = time.time() + 2 # Max gap allowed between UART bytes during dump
        
@@ -182,7 +175,7 @@ def main():
     with serial.Serial(args.port, args.baud, timeout=0.1) as ser:
         time.sleep(0.05) # Let USB-serial bridge settle
         configure(ser, div, args.mask, args.value, args.edge)
-        print("Armed, waiting for trigger...")
+        print("Armed, sampling data...")
         raw = capture(ser, args.depth, actual)
         
     bits = unpack(raw)
