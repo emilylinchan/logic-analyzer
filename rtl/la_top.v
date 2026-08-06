@@ -43,8 +43,7 @@ module la_top #(
     localparam [2:0] S_CAP     = 3'd2; // Sampling and writing to the buffer
     localparam [2:0] S_ADDR    = 3'd3; // Present read address
     localparam [2:0] S_SEND    = 3'd4; // Issue the UART start pulse
-    localparam [2:0] S_TXWAIT  = 3'd5; // Wait for the transmitter to pick it up
-    localparam [2:0] S_TXDONE  = 3'd6; // Wait for the byte to clear, then advance
+    localparam [2:0] S_TXDONE  = 3'd5; // Wait for the frame to finish, then advance
 
     // ----- Reset Synchronizer -----
     (* altera_attribute = "-name SYNCHRONIZER_IDENTIFICATION FORCED_IF_ASYNCHRONOUS" *)
@@ -66,7 +65,7 @@ module la_top #(
     wire [CHANNELS-1:0] w_rd_data;
     wire [7:0]          w_rx_data;
     wire                w_rx_valid;
-    wire                w_tx_busy;
+    wire                w_tx_done;
 
     // ----- Configuration Registers -----
     reg [DIV_WIDTH-1:0] r_div;
@@ -201,22 +200,13 @@ module la_top #(
                 begin
                     r_tx_data  <= w_rd_data;
                     r_tx_start <= 1'b1;
-                    r_state    <= S_TXWAIT;
+                    r_state    <= S_TXDONE;
                 end
 
-                // Wait for the transmitter to acknowledge the start pulse by raising busy, confirming the byte was accepted
-                S_TXWAIT:
-                begin
-                    if (w_tx_busy)
-                    begin
-                        r_state <= S_TXDONE;
-                    end
-                end
-
-                // Wait for busy to drop when the byte has finished shifting out
+                // Wait for the transmitter's done pulse, which fires once the frame has finished shifting out
                 S_TXDONE:
                 begin
-                    if (!w_tx_busy)
+                    if (w_tx_done)
                     begin
                         // Last sample
                         if (r_rd_addr == DEPTH-1)
@@ -302,8 +292,8 @@ module la_top #(
         .i_rst_n     (r_rst_stable),
         .i_tx_start  (r_tx_start),
         .i_tx_data   (r_tx_data),
-        .o_tx_busy   (w_tx_busy),
-        .o_tx_done   (),            // Unused
+        .o_tx_busy   (),            // Unused; flow control uses o_tx_done
+        .o_tx_done   (w_tx_done),
         .o_tx        (o_uart_tx),
         .i_rx        (i_uart_rx),
         .o_rx_data   (w_rx_data),
