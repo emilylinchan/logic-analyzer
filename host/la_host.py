@@ -22,6 +22,7 @@ Trigger on a falling edge on channel 0 at 2 MS/s (i.e. catch a UART start bit):
 import argparse
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 import serial
@@ -34,6 +35,7 @@ DEPTH    = 8192
 CHANNELS = 8
 DIV_MAX  = 0xFFFFFF     # 3 byte max value for FPGA register
 TRIGGER_MARGIN_S = 10.0 # Extra time beyond the fill window to wait for the trigger to fire
+OUTPUT_DIR = Path("output") # Destination folder for saved PNG/CSV files
 
 
 CMD_SET_DIV   = 0x01
@@ -104,7 +106,7 @@ def time_scale(t_max):
         return 1e3, "ms"
     return 1.0, "s"
 
-def plot(bits, rate, channels, title):
+def plot(bits, rate, channels, title, save):
     """Render a step-style waveform plot of the captured samples."""
     n = bits.shape[0]        # Samples (y-axis)
     t = np.arange(n) / rate  # Time    (x-axis)
@@ -128,6 +130,9 @@ def plot(bits, rate, channels, title):
     ax.grid(axis="x", alpha=0.3)
     fig.tight_layout()
     
+    if save:
+        fig.savefig(save, dpi=150)
+        print(f"Saved {save}")
     plt.show()
     
 # ----- Main -----
@@ -148,6 +153,9 @@ def main():
     parser.add_argument("--channels", default=",".join(str(i) for i in range(CHANNELS)),
                         help="channels to plot, e.g. 0,1,4 (default: all)")
     parser.add_argument("--depth", type=int, default=DEPTH, help="must match DEPTH in la_top.v")
+    parser.add_argument("--save", help="write the plot to this PNG (saved in the output folder)")
+    parser.add_argument("--csv", help="write the raw samples to this CSV (saved in the output folder)")
+    
     args = parser.parse_args()
     
     if args.list:
@@ -164,7 +172,13 @@ def main():
     channels = [int(c) for c in args.channels.split(",") if c.strip() != ""]
     if any(ch < 0 or ch >= CHANNELS for ch in channels):
         parser.error(f"Channels must be 0-{CHANNELS-1}")
-        
+
+    # Resolve output paths inside the output folder, creating it if needed
+    if args.save or args.csv:
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    save_path = OUTPUT_DIR / args.save if args.save else None
+    csv_path  = OUTPUT_DIR / args.csv  if args.csv  else None
+
     div, actual = rate_to_div(args.rate)
     window = args.depth / actual
     print(f"sample rate : {actual:,.0f} Hz (div={div})")
@@ -181,9 +195,16 @@ def main():
     bits = unpack(raw)
     print(f"Captured {bits.shape[0]} samples")
     
+    if csv_path:
+        header = "time_s," + ",".join(f"d{ch}" for ch in channels)
+        t = (np.arange(bits.shape[0]) / actual)[:, None]
+        np.savetxt(csv_path, np.hstack([t, bits[:, channels]]),
+                   delimiter=",", header=header, comments="", fmt="%.9g")
+        print(f"Saved {csv_path}")
+    
     title = (f"DE10-Lite logic analyzer  -  {actual:,.0f} S/s  -  "
                 f"{bits.shape[0]} samples  -  {window * 1e3:.2f} ms")
-    plot(bits, actual, channels, title)
+    plot(bits, actual, channels, title, save_path)
     
 if __name__=="__main__":
     main()
