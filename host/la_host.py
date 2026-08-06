@@ -12,11 +12,14 @@ Speaks the byte protocol implemented in la_top.v:
 
 Examples
 --------
-Free-running capture at 1 MS/s (mask 0 matches everything, fires immediately):
-    python la_host.py -p COM3 --rate 1e6
+# Free-running capture at 1 MS/s (mask 0 fires immediately)
+python la_host.py -p COM3 --rate 1000000
 
-Trigger on a falling edge on channel 0 at 2 MS/s (i.e. catch a UART start bit):
-    python la_host.py -p COM3 --rate 2e6 --mask 0x01 --value 0x00 --edge
+# Trigger on a falling edge on channel 0 at 2 MS/s (e.g. a UART start bit)
+python la_host.py -p COM3 --rate 2000000 --mask 0x01 --value 0x00 --edge
+
+# Plot only a few channels and save the plot + raw samples
+python la_host.py -p COM3 --rate 1000 --channels 0,1,4 --save capture.png --csv capture.csv
 """
 
 import argparse
