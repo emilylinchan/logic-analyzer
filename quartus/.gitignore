@@ -1,0 +1,23 @@
+# Quartus build output — keep only the project sources (*.qpf, *.qsf)
+db/
+incremental_db/
+output_files/
+greybox_tmp/
+simulation/
+timing/
+
+# Generated / user-specific files
+*.qws
+*.rpt
+*.summary
+*.smsg
+*.jdi
+*.pin
+*.done
+*.qdf
+*.sof
+*.pof
+*.sld
+*.stp
+c5_pin_model_dump.txt
+PLLJ_PLLSPE_INFO.txt
