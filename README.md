@@ -1,6 +1,6 @@
 # FPGA Logic Analyzer
 
-An 8-channel logic analyzer for the [Terasic DE10-Lite](https://www.terasic.com.tw/) (Intel MAX 10) FPGA board. The FPGA samples up to 8 digital probe lines into on-chip block RAM, waits for a configurable trigger, and streams the captured buffer back to a PC over UART. A Python host tool configures the capture, reads the data, and renders it as a step-style waveform plot.
+A multi-channel logic analyzer for the [Terasic DE10-Lite](https://www.terasic.com.tw/) (Intel MAX 10) FPGA board. The FPGA samples up to 8 digital probe lines into on-chip block RAM, waits for a configurable trigger, and streams the captured buffer back to a PC over UART. A Python host tool configures the capture, reads the data, and renders it as a step-style waveform plot.
 
 ## Features
 
