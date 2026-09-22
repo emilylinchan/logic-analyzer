@@ -67,14 +67,21 @@ logic-analyzer/
 │   ├── trigger.v         #   Mask/value trigger
 │   └── buffer_ram.v      #   M9K capture buffer
 ├── ip/
-│   └── uart/             # Reusable UART IP (see (github repo link))
+│   └── uart/             # Reusable UART IP
 ├── quartus/              # Quartus project (.qpf/.qsf)
 ├── host/
 │   ├── la_host.py        # Host-side capture + plotting tool
 │   └── output/           # Saved captures (PNG / CSV)
-└── test/
-    └── i2c_demo/    
-        └── i2c_demo.ino  # 
+├── tb/
+│   └── la_tb.v           # Self-checking top-level testbench
+├── test/
+│   └── i2c_demo/
+│       ├── i2c_demo.ino  # Reads the VL53L1X Model ID over I2C
+│       └── i2c_annotated.png  # Annotated capture of that transaction
+└── docs/
+    ├── logic_analyzer.drawio      # Block diagram source
+    ├── logic_analyzer.drawio.png  # Exported block diagram
+    └── i2c_annotated_thumbnail.png
 ```
 
 ## Design Notes
@@ -85,6 +92,26 @@ logic-analyzer/
   - `SYNCHRONIZER_IDENTIFICATION` — enables MTBF calculation and tight placement of the synchronizer registers.
   - `preserve` — prevents synthesis from merging the registers or retiming the logic.
 - **Capture/dump FSM** — the FSM strictly separates the write (capture) phase from the read (dump) phase. Because of that separation, a simple dual-port Block RAM (BRAM) works perfectly here: there are no runtime clock conflicts and no simultaneous read/write hazards to design around.
+
+## Testbench
+
+[`tb/la_tb.v`](tb/la_tb.v) is a self-checking testbench for the full `la_top` design. It models the PC host in simulation: a bit-banged UART driver sends command frames into `i_uart_rx`, while a receiver task waits for start bits and samples `o_uart_tx` mid-bit to recover the dumped capture. 
+
+The probe lines are driven either by a free-running counter, so every sample is unique and capture *order* and *spacing* can be verified, or by a held value for the trigger tests. 
+
+`DEPTH` is shortened to 16 samples to keep the run quick.
+
+| # | Test | What it checks |
+|---|---|---|
+| 1 | Idle | `o_uart_tx` parks high out of reset and nothing is sent before an ARM |
+| 2 | Bad opcode | Unknown command bytes are ignored |
+| 3 | Capture | `DEPTH` bytes come back in order, then the line goes idle |
+| 4 | `SET_DIV` | Sample spacing and total capture duration follow the 24-bit divider (`div=259` = samples 260 clocks apart) |
+| 5 | Level trigger | Capture is held off until the masked channels match, then runs |
+| 6 | Edge trigger | An already-true condition does not fire; only a transition into it does |
+| 7 | Re-arm | A second capture runs cleanly after the first completes |
+
+A watchdog timeout fails the run rather than letting a stalled DUT hang the simulation, and each check prints a PASS/FAIL line followed by an overall summary. Waveforms are dumped to `la_tb.vcd` for inspection.
 
 ## Next Steps
 
